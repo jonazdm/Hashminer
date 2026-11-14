@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>HashMiner Tycoon</title>
+  <script src="https://telegram.org"></script>
+  <style>
+    :root {
+      --bg: #0f172a; --card: #1e293b; --accent: #10b981;
+      --accent-glow: rgba(16, 185, 129, 0.4); --gold: #f59e0b;
+      --purple: #8b5cf6; --text: #f8fafc; --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; user-select: none; }
+    body { background-color: var(--bg); color: var(--text); display: flex; flex-direction: column; min-height: 100vh; padding: 16px; }
+    
+    .header { display: flex; justify-content: space-between; align-items: center; background: var(--card); padding: 12px 16px; border-radius: 14px; margin-bottom: 12px; }
+    .user-info { font-size: 14px; font-weight: 600; color: var(--muted); }
+    .rate-badge { background: rgba(16, 185, 129, 0.15); color: var(--accent); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+
+    .tags-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 8px; }
+    .tag-chip {
+      background: var(--card); border: 1px solid #334155; color: var(--muted);
+      padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+      cursor: pointer; white-space: nowrap; transition: 0.2s;
+    }
+    .tag-chip.active { background: rgba(139, 92, 246, 0.2); border-color: var(--purple); color: #ddd6fe; }
+
+    .balance-box { text-align: center; margin: 4px 0 14px; }
+    .balance-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    .balance-amount { font-size: 36px; font-weight: 800; color: var(--text); margin-top: 2px; }
+    .balance-amount span { color: var(--gold); font-size: 20px; }
+
+    .mine-zone { display: flex; justify-content: center; align-items: center; margin: 4px 0 18px; }
+    .mine-btn {
+      width: 150px; height: 150px; border-radius: 50%; border: 4px solid var(--accent);
+      background: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
+      box-shadow: 0 0 28px var(--accent-glow);
+      color: var(--text); font-size: 16px; font-weight: 800; cursor: pointer;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      transition: transform 0.08s ease;
+    }
+    .mine-btn:active { transform: scale(0.93); }
+    .mine-icon { font-size: 40px; margin-bottom: 4px; }
+
+    .action-row { display: flex; gap: 10px; margin-bottom: 10px; }
+    .ad-btn, .box-btn {
+      flex: 1; border: none; color: #fff; padding: 12px 8px; border-radius: 12px;
+      font-weight: 700; font-size: 13px; cursor: pointer; text-align: center;
+    }
+    .ad-btn { background: linear-gradient(90deg, #f59e0b, #d97706); }
+    .box-btn { background: linear-gradient(90deg, #8b5cf6, #6d28d9); }
+
+    .copy-link-btn {
+      width: 100%; background: var(--card); border: 1px solid #334155; color: var(--muted);
+      padding: 8px; border-radius: 10px; font-size: 12px; font-weight: 600;
+      cursor: pointer; margin-bottom: 16px; text-align: center;
+    }
+    .copy-link-btn:active { background: #334155; color: #fff; }
+
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .upgrades-title { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: 0.5px; }
+    .upgrade-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 24px; }
+    .upgrade-card {
+      background: var(--card); padding: 14px; border-radius: 14px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .up-tag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 6px; background: #334155; color: #cbd5e1; margin-bottom: 4px; }
+    .up-info h4 { font-size: 15px; margin-bottom: 2px; }
+    .up-info p { font-size: 12px; color: var(--muted); }
+    .buy-btn {
+      background: var(--accent); color: #052e16; border: none; padding: 10px 14px;
+      border-radius: 10px; font-weight: 800; font-size: 13px; cursor: pointer; min-width: 95px;
+    }
+    .buy-btn:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="user-info" id="username">Minero Invitado</div>
+    <div class="rate-badge">+<span id="pps">0</span> HASH/s</div>
+  </div>
+
+  <div class="tags-bar" id="tagsBar">
+    <div class="tag-chip active" data-filter="all">#Todos</div>
+    <div class="tag-chip" data-filter="click">#Manual (Clics)</div>
+    <div class="tag-chip" data-filter="auto">#Pasivo (AFK)</div>
+    <div class="tag-chip" data-filter="ad">#Potenciador Ads</div>
+  </div>
+
+  <div class="balance-box">
+    <div class="balance-label">Balance Minado</div>
+    <div class="balance-amount"><span id="balance">0</span> <span>HASH</span></div>
+  </div>
+
+  <div class="mine-zone">
+    <button class="mine-btn" id="mineBtn">
+      <div class="mine-icon">⛏️</div>
+      <div>MINAR (+<span id="clickPower">1</span>)</div>
+    </button>
+  </div>
+
+  <div class="action-row">
+    <button class="ad-btn" id="boostBtn">⚡ Ver Anuncio (+500)</button>
+    <button class="box-btn" id="mysteryBtn">🎁 Cofre Ad (x2 Clic 30s)</button>
+  </div>
+
+  <button class="copy-link-btn" id="copyLinkBtn">🔗 Copiar enlace de HashMiner Tycoon</button>
+
+  <div class="section-header">
+    <div class="upgrades-title">EQUIPO DE MINERÍA</div>
+  </div>
+  <div class="upgrade-list" id="upgradeList"></div>
+
+  <script>
+    const DOMAIN = "t.me";
+    const BOT_USER = "HashMinerTycoon_bot";
+    const APP_SLUG = "Minar";
+    const BOT_APP_URL = `https://${DOMAIN}/${BOT_USER}/${APP_SLUG}`;
+
+    const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        document.getElementById('username').innerText = '@' + (tg.initDataUnsafe.user.username || tg.initDataUnsafe.user.first_name);
+      }
+    }
+
+    function notifyUser(msg) {
+      if (tg && tg.showAlert) {
+        tg.showAlert(msg);
+      } else {
+        alert(msg);
+      }
+    }
+
+    const defaultUpgrades = [
+      { id: 'cpu', tag: 'click', tagName: '#Manual', name: 'Procesador Básico', desc: '+1 HASH por clic', cost: 25, type: 'click', power: 1, level: 0 },
+      { id: 'gpu', tag: 'auto', tagName: '#Pasivo', name: 'Tarjeta Gráfica GTX', desc: '+2 HASH por segundo', cost: 100, type: 'auto', power: 2, level: 0 },
+      { id: 'adboost', tag: 'ad', tagName: '#Ads', name: 'Antena Patrocinada', desc: '+250 HASH extra por anuncio', cost: 250, type: 'adBonus', power: 250, level: 0 },
+      { id: 'rig', tag: 'auto', tagName: '#Pasivo', name: 'Rig de Minería 6x', desc: '+12 HASH por segundo', cost: 500, type: 'auto', power: 12, level: 0 },
+      { id: 'asic', tag: 'auto', tagName: '#Pasivo', name: 'Antminer S21 Pro', desc: '+65 HASH por segundo', cost: 2500, type: 'auto', power: 65, level: 0 }
+    ];
+
+    let saved = JSON.parse(localStorage.getItem('hashMinerV5'));
+    let state = (saved && Array.isArray(saved.upgrades) && saved.upgrades.length > 0) ? saved : {
+      balance: 0,
+      clickPower: 1,
+      pps: 0,
+      adBonus: 0,
+      upgrades: defaultUpgrades
+    };
+
+    let currentFilter = 'all';
+    let clickMultiplier = 1;
+
+    function saveState() {
+      localStorage.setItem('hashMinerV5', JSON.stringify(state));
+    }
+
+    function updateUI() {
+      const effectiveClick = state.clickPower * clickMultiplier;
+      document.getElementById('balance').innerText = Math.floor(state.balance).toLocaleString();
+      document.getElementById('pps').innerText = state.pps.toLocaleString();
+      document.getElementById('clickPower').innerText = effectiveClick;
+      document.getElementById('boostBtn').innerText = `⚡ Ver Anuncio (+${500 + (state.adBonus || 0)})`;
+
+      const list = document.getElementById('upgradeList');
+      list.innerHTML = '';
+
+      state.upgrades.forEach((up, index) => {
+        if (currentFilter !== 'all' && up.tag !== currentFilter) return;
+
+        const canAfford = state.balance >= up.cost;
+        const card = document.createElement('div');
+        card.className = 'upgrade-card';
+        card.innerHTML = `
+          <div class="up-info">
+            <span class="up-tag">${up.tagName}</span>
+            <h4>${up.name} (Nv. ${up.level})</h4>
+            <p>${up.desc}</p>
+          </div>
+          <button class="buy-btn" ${canAfford ? '' : 'disabled'} onclick="buyUpgrade(${index})">
+            ${up.cost.toLocaleString()} HASH
+          </button>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    document.querySelectorAll('.tag-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('.tag-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        currentFilter = chip.getAttribute('data-filter');
+        updateUI();
+      });
+    });
+
+    document.getElementById('mineBtn').addEventListener('click', () => {
+      state.balance += (state.clickPower * clickMultiplier);
+      if (tg && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      saveState();
+      updateUI();
+    });
+
+    window.buyUpgrade = function(index) {
+      const up = state.upgrades[index];
+      if (state.balance >= up.cost) {
+        state.balance -= up.cost;
+        up.level += 1;
+        up.cost = Math.floor(up.cost * 1.45);
+        if (up.type === 'click') state.clickPower += up.power;
+        if (up.type === 'auto') state.pps += up.power;
+        if (up.type === 'adBonus') state.adBonus = (state.adBonus || 0) + up.power;
+        if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        saveState();
+        updateUI();
+      }
+    };
+
+    document.getElementById('boostBtn').addEventListener('click', () => {
+      const reward = 500 + (state.adBonus || 0);
+      state.balance += reward;
+      if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      notifyUser(`¡Recibiste +${reward} HASH!`);
+      saveState();
+      updateUI();
+    });
+
+    document.getElementById('mysteryBtn').addEventListener('click', () => {
+      if (clickMultiplier > 1) {
+        notifyUser('¡Ya tienes el multiplicador x2 activo!');
+        return;
+      }
+      clickMultiplier = 2;
+      if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      notifyUser('¡Turbo x2 activado por 30 segundos!');
+      updateUI();
+      setTimeout(() => {
+        clickMultiplier = 1;
+        updateUI();
+      }, 30000);
+    });
+
+    document.getElementById('copyLinkBtn').addEventListener('click', () => {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(BOT_APP_URL);
+        notifyUser('Enlace copiado: ' + BOT_APP_URL);
+      } else {
+        notifyUser('Tu enlace es: ' + BOT_APP_URL);
+      }
+    });
+
+    setInterval(() => {
+      if (state.pps > 0) {
+        state.balance += state.pps;
+        saveState();
+        updateUI();
+      }
+    }, 1000);
+
+    updateUI();
+  </script>
+</body>
+</html>
+
